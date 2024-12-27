@@ -58,8 +58,8 @@ const selectQuestion = (pageNum) => __awaiter(void 0, void 0, void 0, function* 
         try {
             const selectQuestionQuery = `
         SELECT 
-        question_title, question_name, is_secret,
-        is_answer_done, is_delete 
+        id, question_title, question_name, is_secret,
+        is_answer_done, is_delete, created_at 
         FROM question ORDER BY id DESC LIMIT 10 OFFSET ?;
       `;
             const selectQuestionParams = [Number(pageNum) - 1];

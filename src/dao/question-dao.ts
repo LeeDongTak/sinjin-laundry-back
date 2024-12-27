@@ -6,7 +6,7 @@ export const insertQuestion = async function (
   question_content: string,
   question_name: string,
   is_secret: number,
-  hashedPassword?: string,
+  hashedPassword?: string | null,
 ) {
   try {
     // DB연결 검사
@@ -51,8 +51,8 @@ export const selectQuestion = async (pageNum: string) => {
     try {
       const selectQuestionQuery = `
         SELECT 
-        question_title, question_name, is_secret,
-        is_answer_done, is_delete 
+        id, question_title, question_name, is_secret,
+        is_answer_done, is_delete, created_at 
         FROM question ORDER BY id DESC LIMIT 10 OFFSET ?;
       `;
       const selectQuestionParams = [Number(pageNum) - 1];

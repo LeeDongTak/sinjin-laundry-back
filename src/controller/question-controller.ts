@@ -49,10 +49,12 @@ export const createQuestion: RequestHandler = async (req: Request, res: Response
       });
       return;
     }
-    const hashedPassword = crypto
-      .createHash('sha224')
-      .update('' + secret_password)
-      .digest('base64');
+    const hashedPassword = secret_password
+      ? crypto
+          .createHash('sha224')
+          .update('' + secret_password)
+          .digest('base64')
+      : null;
 
     const createQuestionData = await insertQuestion(
       question_title,
@@ -106,14 +108,7 @@ export const readQuestion: RequestHandler = async (req: Request, res: Response, 
   try {
     const readQuestionData = await selectQuestion(pageMum);
 
-    const readQuestionDataOfSecret = Array.isArray(readQuestionData)
-      ? readQuestionData.map(item => {
-          const { is_secret } = item as { is_secret: number };
-          return is_secret === 1 ? { ...item, question_title: '비밀글 입니다' } : item;
-        })
-      : [false];
-
-    if (!readQuestionData || !readQuestionDataOfSecret[0]) {
+    if (!readQuestionData) {
       res.status(500).send({
         isSuccess: false,
         message: '서버에 문제가 발생하였습니다.',
@@ -123,7 +118,7 @@ export const readQuestion: RequestHandler = async (req: Request, res: Response, 
 
     res.status(200).send({
       isSuccess: true,
-      data: readQuestionDataOfSecret,
+      data: readQuestionData,
       message: '요청에 성공하였습니다.',
     });
     return;

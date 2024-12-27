@@ -8,7 +8,7 @@ const cors_1 = __importDefault(require("cors"));
 const compression_1 = __importDefault(require("compression"));
 const question_router_1 = __importDefault(require("./router/question-router"));
 const app = (0, express_1.default)();
-const port = 3000;
+const port = 4000;
 // express 미들웨어 설정
 // cors 설정
 app.use((0, cors_1.default)());

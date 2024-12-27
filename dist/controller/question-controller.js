@@ -55,10 +55,12 @@ const createQuestion = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
             });
             return;
         }
-        const hashedPassword = crypto_1.default
-            .createHash('sha224')
-            .update('' + secret_password)
-            .digest('base64');
+        const hashedPassword = secret_password
+            ? crypto_1.default
+                .createHash('sha224')
+                .update('' + secret_password)
+                .digest('base64')
+            : null;
         const createQuestionData = yield (0, question_dao_1.insertQuestion)(question_title, question_content, question_name, is_secret ? 1 : 0, hashedPassword);
         const { insertId } = createQuestionData;
         if (!createQuestionData) {
@@ -101,13 +103,7 @@ const readQuestion = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
     }
     try {
         const readQuestionData = yield (0, question_dao_1.selectQuestion)(pageMum);
-        const readQuestionDataOfSecret = Array.isArray(readQuestionData)
-            ? readQuestionData.map(item => {
-                const { is_secret } = item;
-                return is_secret === 1 ? Object.assign(Object.assign({}, item), { question_title: '비밀글 입니다' }) : item;
-            })
-            : [false];
-        if (!readQuestionData || !readQuestionDataOfSecret[0]) {
+        if (!readQuestionData) {
             res.status(500).send({
                 isSuccess: false,
                 message: '서버에 문제가 발생하였습니다.',
@@ -116,7 +112,7 @@ const readQuestion = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
         }
         res.status(200).send({
             isSuccess: true,
-            data: readQuestionDataOfSecret,
+            data: readQuestionData,
             message: '요청에 성공하였습니다.',
         });
         return;
