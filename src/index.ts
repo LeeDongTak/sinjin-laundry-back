@@ -4,7 +4,7 @@ import compression from 'compression';
 import questionRouter from './router/question-router';
 
 const app: Application = express();
-const port: number = 4000;
+const port: number = 3000;
 
 // express 미들웨어 설정
 
