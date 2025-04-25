@@ -5,10 +5,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const express_session_1 = __importDefault(require("express-session"));
 const compression_1 = __importDefault(require("compression"));
 const question_router_1 = __importDefault(require("./router/question-router"));
+const admin_user_router_1 = __importDefault(require("./router/admin-user-router"));
 const app = (0, express_1.default)();
-const port = 4000;
+const port = 3000;
 // express 미들웨어 설정
 // cors 설정
 app.use((0, cors_1.default)());
@@ -16,7 +18,14 @@ app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 // http 압축
 app.use((0, compression_1.default)());
+app.use((0, express_session_1.default)({
+    secret: `${process.env.SESSION_KEY}`,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false }, // https 사용 시 true로 설정하세요.
+}));
 (0, question_router_1.default)(app);
+(0, admin_user_router_1.default)(app);
 app.listen(port, () => {
     console.log(`Express app listening at port: ${port}`);
 });

@@ -44,22 +44,25 @@ export const insertQuestion = async function (
 };
 
 // 질문 리스트 조회
-export const selectQuestion = async (pageNum: string) => {
+export const selectQuestion = async (pageNum: string, is_answer?: string) => {
   try {
     const connection = await pool.getConnection();
-
+    const answer = !is_answer ? 'ALL' : is_answer;
     try {
       const selectQuestionQuery = `
         SELECT 
         id, question_title, question_name, is_secret,
         is_answer_done, is_delete, created_at 
-        FROM question ORDER BY id DESC LIMIT 10 OFFSET ?;
+        FROM question
+        ${answer !== 'ALL' ? 'WHERE is_answer_done = ?' : ''}
+        ORDER BY id DESC LIMIT 10 OFFSET ?;
       `;
-      const selectQuestionParams = [Number(pageNum) - 1];
+      const selectQuestionParams = answer === 'ALL' ? [Number(pageNum) - 1] : [answer, Number(pageNum) - 1];
       const [row] = await connection.query(selectQuestionQuery, selectQuestionParams);
       return row;
     } catch (err) {
       console.log(`### getUserRows Query error ### ${err}`);
+      console.log(is_answer);
       return false;
     } finally {
       connection.release();
@@ -117,7 +120,7 @@ export const selectQuestionSecretDetail = async (questionId: string, hashedPassw
           )
           END AS question,
           CASE
-          WHEN answer.id IS NOT NULL THEN JSON_OBJECT(
+          WHEN answer.id IS NOT NULL AND answer.is_delete = 0 THEN JSON_OBJECT(
             'id', answer.id,
             'question_id', answer.question_id,
             'answer_title', answer.answer_title,

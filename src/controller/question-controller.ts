@@ -88,6 +88,7 @@ export const createQuestion: RequestHandler = async (req: Request, res: Response
 // 질문 리스트 조회
 export const readQuestion: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
   const { pageMum } = req.params;
+  const is_answer = req.query.is_answer as string | undefined;
 
   // 에러처리
   if (!pageMum || pageMum === ' ') {
@@ -106,7 +107,7 @@ export const readQuestion: RequestHandler = async (req: Request, res: Response, 
     return;
   }
   try {
-    const readQuestionData = await selectQuestion(pageMum);
+    const readQuestionData = await selectQuestion(pageMum, is_answer);
 
     if (!readQuestionData) {
       res.status(500).send({

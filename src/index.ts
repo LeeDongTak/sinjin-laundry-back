@@ -1,7 +1,10 @@
 import express, { Application } from 'express';
 import cors from 'cors';
+import session from 'express-session';
 import compression from 'compression';
 import questionRouter from './router/question-router';
+import adminUserRouter from './router/admin-user-router';
+import answerRouter from './router/answer-router';
 
 const app: Application = express();
 const port: number = 3000;
@@ -17,7 +20,19 @@ app.use(express.json());
 // http 압축
 app.use(compression());
 
+// session 설정
+app.use(
+  session({
+    secret: `${process.env.SESSION_KEY}`,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false }, // https 사용 시 true로 설정하세요.
+  }),
+);
+
 questionRouter(app);
+adminUserRouter(app);
+answerRouter(app);
 
 app.listen(port, () => {
   console.log(`Express app listening at port: ${port}`);
