@@ -18,7 +18,7 @@ const crypto_1 = __importDefault(require("crypto"));
 // 질문 등록
 const createQuestion = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { question_title, question_content, question_name, is_secret, secret_password } = req.body;
+        const { question_title, question_content, question_name, is_secret, secret_password, user_email, user_phone, user_site, } = req.body;
         // 에러처리
         if (!question_title) {
             res.status(400).send({
@@ -48,6 +48,13 @@ const createQuestion = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
             });
             return;
         }
+        if (!user_email && !user_phone) {
+            res.status(400).send({
+                isSuccess: false,
+                message: '이메일 혹은 전화번호를 입력해 주세요',
+            });
+            return;
+        }
         if (is_secret && secret_password.length > 6) {
             res.status(400).send({
                 isSuccess: false,
@@ -61,7 +68,7 @@ const createQuestion = (req, res, next) => __awaiter(void 0, void 0, void 0, fun
                 .update('' + secret_password)
                 .digest('base64')
             : null;
-        const createQuestionData = yield (0, question_dao_1.insertQuestion)(question_title, question_content, question_name, is_secret ? 1 : 0, hashedPassword);
+        const createQuestionData = yield (0, question_dao_1.insertQuestion)(question_title, question_content, question_name, is_secret ? 1 : 0, hashedPassword, user_email, user_phone, user_site);
         const { insertId } = createQuestionData;
         if (!createQuestionData) {
             res.status(500).send({
@@ -85,6 +92,7 @@ exports.createQuestion = createQuestion;
 // 질문 리스트 조회
 const readQuestion = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     const { pageMum } = req.params;
+    const is_answer = req.query.is_answer;
     // 에러처리
     if (!pageMum || pageMum === ' ') {
         res.status(400).send({
@@ -102,8 +110,8 @@ const readQuestion = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
         return;
     }
     try {
-        const readQuestionData = yield (0, question_dao_1.selectQuestion)(pageMum);
-        if (!readQuestionData) {
+        const readQuestionData = yield (0, question_dao_1.selectQuestion)(pageMum, is_answer);
+        if (!readQuestionData || !readQuestionData.total || !readQuestionData.question) {
             res.status(500).send({
                 isSuccess: false,
                 message: '서버에 문제가 발생하였습니다.',
@@ -124,6 +132,7 @@ const readQuestion = (req, res, next) => __awaiter(void 0, void 0, void 0, funct
 exports.readQuestion = readQuestion;
 // 질문 상세 내용 조회 (비밀글 x)
 const readQuestionDetail = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    const user = req.session.user;
     const { questionId } = req.params;
     // 에러처리
     if (!questionId || questionId === ' ') {
@@ -136,7 +145,7 @@ const readQuestionDetail = (req, res, next) => __awaiter(void 0, void 0, void 0,
     try {
         const readQuestionDetailBySecret = yield (0, question_dao_1.selectDetailBySecretType)(questionId);
         const { is_secret } = JSON.parse(JSON.stringify(Object.assign({}, readQuestionDetailBySecret)))[0];
-        if (is_secret === 1) {
+        if (is_secret === 1 && !user) {
             res.status(400).send({
                 isSuccess: false,
                 message: '비밀글 입니다. 비밀번호를 입력해 주세요',
@@ -144,6 +153,13 @@ const readQuestionDetail = (req, res, next) => __awaiter(void 0, void 0, void 0,
             return;
         }
         const readQuestionDetailData = yield (0, question_dao_1.selectQuestionDetail)(questionId);
+        // if (!readQuestionDetailData) {
+        //   res.status(500).send({
+        //     isSuccess: false,
+        //     message: '서버에 문제가 발생하였습니다.',
+        //   });
+        //   return;
+        // }
         if (!readQuestionDetailData) {
             res.status(500).send({
                 isSuccess: false,
@@ -151,9 +167,11 @@ const readQuestionDetail = (req, res, next) => __awaiter(void 0, void 0, void 0,
             });
             return;
         }
+        const { question, answer } = JSON.parse(JSON.stringify(Object.assign({}, readQuestionDetailData)))[0];
+        const result = Object.assign(Object.assign({}, question), { answer });
         res.status(200).send({
             isSuccess: true,
-            data: readQuestionDetailData,
+            data: result,
             message: '요청에 성공하였습니다.',
         });
         return;

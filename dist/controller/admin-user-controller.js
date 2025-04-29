@@ -8,20 +8,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminSignup = exports.adminSignin = void 0;
+exports.deleteQuestion = exports.adminSignout = exports.adminSignin = exports.adminSignup = void 0;
 const admin_user_dao_1 = require("../dao/admin-user-dao");
-const adminSignin = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
-    // try {
-    //   const { admin_id, password } = req.body;
-    //   if (admin_id === adminUser.username && password === adminUser.password) {
-    //     req.session.user = { username };
-    //     return res.json({ success: true });
-    //   }
-    //   res.status(401).json({ success: false, message: 'Invalid credentials' });
-    // } catch (error) {}
-});
-exports.adminSignin = adminSignin;
+const bcrypt_1 = __importDefault(require("bcrypt"));
 const adminSignup = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { admin_id, password } = req.body;
@@ -30,7 +23,17 @@ const adminSignup = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
                 isSuccess: false,
                 message: '아이디,페스워드를 입력해 주세요',
             });
-            const createUserData = yield (0, admin_user_dao_1.createUser)(admin_id, password);
+            return;
+        }
+        const checkAdminId = yield (0, admin_user_dao_1.selectCheckAdminId)(admin_id);
+        if (!checkAdminId || checkAdminId.length !== 0) {
+            res.status(400).send({ isSuccess: false, message: '아이디가 이미 존재합니다.' });
+            return;
+        }
+        else {
+            const salt = yield bcrypt_1.default.genSalt(10);
+            const hashPassword = yield bcrypt_1.default.hash(password, salt);
+            const createUserData = yield (0, admin_user_dao_1.createUser)(admin_id, hashPassword);
             if (!createUserData) {
                 res.status(500).send({
                     isSuccess: false,
@@ -38,9 +41,10 @@ const adminSignup = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
                 });
                 return;
             }
+            const { insertId } = createUserData;
             res.status(200).send({
                 isSuccess: true,
-                id: createUserData,
+                id: insertId,
                 message: '요청에 성공하였습니다.',
             });
             return;
@@ -51,3 +55,92 @@ const adminSignup = (req, res, next) => __awaiter(void 0, void 0, void 0, functi
     }
 });
 exports.adminSignup = adminSignup;
+// 로그인
+const adminSignin = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { admin_id, password } = req.body;
+        if (!admin_id || !password) {
+            res.status(400).send({ isSuccess: false, message: '아이디와 페스워드를 입력해 주세요' });
+            return;
+        }
+        const selectUserData = yield (0, admin_user_dao_1.selectUser)(admin_id);
+        if (!selectUserData) {
+            res.status(400).send({ isSuccess: false, message: '아이디나 페스워드가 올바르지 않습니다.' });
+            return;
+        }
+        const validPassword = yield bcrypt_1.default.compare(password, selectUserData.password);
+        if (!validPassword) {
+            res.status(400).send({ isSuccess: false, message: '아이디나 페스워드가 올바르지 않습니다.' });
+            return;
+        }
+        (req.session.user = '' + selectUserData.id),
+            (req.session.name = '' + selectUserData.name),
+            res.send({
+                isSuccess: true,
+                massage: '로그인에 성공하였습니다',
+            });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.adminSignin = adminSignin;
+// 로그아웃
+const adminSignout = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        req.session.destroy(err => {
+            if (err) {
+                res.status(500).send({ isSuccess: false, message: '로그아웃을 실패하였습니다' });
+                return;
+            }
+            res.status(200).send({ isSuccess: true, message: '로그아웃 성공' });
+            return;
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.adminSignout = adminSignout;
+// 질문 삭제
+const deleteQuestion = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const user = req.session.user;
+        const { questionId } = req.params;
+        // 에러처리
+        if (!user) {
+            res.status(400).send({
+                isSuccess: false,
+                message: '로그인을 해주세요',
+            });
+            return;
+        }
+        if (!questionId) {
+            res.status(400).send({
+                isSuccess: false,
+                message: '질문id를 입력해 주세요',
+            });
+            return;
+        }
+        const updateAnswerData = yield (0, admin_user_dao_1.deleteQuestionDao)(questionId);
+        const { insertId } = updateAnswerData;
+        if (!updateAnswerData) {
+            res.status(500).send({
+                isSuccess: false,
+                message: '서버에 문제가 발생하였습니다.',
+            });
+            return;
+        }
+        res.status(200).send({
+            isSuccess: true,
+            id: insertId,
+            message: '요청에 성공하였습니다.',
+        });
+        return;
+    }
+    catch (error) {
+        next(error);
+    }
+});
+exports.deleteQuestion = deleteQuestion;

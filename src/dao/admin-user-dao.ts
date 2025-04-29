@@ -75,3 +75,30 @@ export const selectUser = async function (admin_id: string) {
     return false;
   }
 };
+
+// 질문 삭제
+export const deleteQuestionDao = async function (questionId: string) {
+  try {
+    // DB연결 검사
+    const connection = await pool.getConnection();
+
+    try {
+      // 쿼리
+      const deleteQuestionQuery = `UPDATE question SET is_delete = 1 WHERE id = ?;`;
+      const deleteParams = [questionId];
+      const [row] = await connection.query(deleteQuestionQuery, deleteParams);
+      connection.query(`UPDATE answer SET is_delete = 1 WHERE question_id = ?;`, deleteParams);
+      await connection.query(`UPDATE question SET is_answer_done = 0 WHERE id = ?`, deleteParams);
+
+      return row;
+    } catch (err) {
+      console.error(`### Query error ### \n ${err}`);
+      return false;
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error(`### Query error ### \n ${err}`);
+    return false;
+  }
+};

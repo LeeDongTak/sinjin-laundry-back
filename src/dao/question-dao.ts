@@ -7,6 +7,9 @@ export const insertQuestion = async function (
   question_name: string,
   is_secret: number,
   hashedPassword?: string | null,
+  user_email?: string,
+  user_phone?: string,
+  user_site?: string,
 ) {
   try {
     // DB연결 검사
@@ -22,12 +25,24 @@ export const insertQuestion = async function (
           question_name, 
           is_secret, 
           secret_password, 
+          user_email,
+          user_phone,
+          user_site,
           is_answer_done, 
           is_delete
         )
-        value(?, ?, ?, ?, ?, 0, 0);
+        value(?, ?, ?, ?, ?, ?, ?, ?, 0, 0);
       `;
-      const insertQuestionParams = [question_title, question_content, question_name, is_secret, hashedPassword];
+      const insertQuestionParams = [
+        question_title,
+        question_content,
+        question_name,
+        is_secret,
+        hashedPassword,
+        user_email,
+        user_phone,
+        user_site,
+      ];
 
       const [row] = await connection.query(insertQuestionQuery, insertQuestionParams);
       return row;
@@ -49,20 +64,30 @@ export const selectQuestion = async (pageNum: string, is_answer?: string) => {
     const connection = await pool.getConnection();
     const answer = !is_answer ? 'ALL' : is_answer;
     try {
+      const [countRows] = await connection.query(
+        `SELECT COUNT(*) as total FROM question WHERE is_delete = 0 ${
+          answer !== 'ALL' ? 'WHERE is_answer_done = ?' : ''
+        }`,
+        answer !== 'ALL' ? [answer] : [],
+      );
+      const total = (countRows as any[])[0].total;
+      const limit = 10;
+      const offset = (+pageNum - 1) * limit;
+
       const selectQuestionQuery = `
         SELECT 
         id, question_title, question_name, is_secret,
         is_answer_done, is_delete, created_at 
         FROM question
+        WHERE is_delete = 0
         ${answer !== 'ALL' ? 'WHERE is_answer_done = ?' : ''}
-        ORDER BY id DESC LIMIT 10 OFFSET ?;
+        ORDER BY id DESC LIMIT ? OFFSET ?;
       `;
-      const selectQuestionParams = answer === 'ALL' ? [Number(pageNum) - 1] : [answer, Number(pageNum) - 1];
-      const [row] = await connection.query(selectQuestionQuery, selectQuestionParams);
-      return row;
+      const selectQuestionParams = answer === 'ALL' ? [limit, offset] : [answer, limit, offset];
+      const [question] = await connection.query(selectQuestionQuery, selectQuestionParams);
+      return { total, question };
     } catch (err) {
       console.log(`### getUserRows Query error ### ${err}`);
-      console.log(is_answer);
       return false;
     } finally {
       connection.release();
@@ -104,7 +129,7 @@ export const selectQuestionSecretDetail = async (questionId: string, hashedPassw
       const selectQuestionSecretDetailQuery = `
         SELECT 
         CASE 
-          WHEN question.secret_password = ? THEN JSON_OBJECT(
+          WHEN question.secret_password = ? AND question.is_delete = 0 THEN JSON_OBJECT(
             'id', question.id,
             'question_title', question.question_title,
             'question_content', question.question_content,
@@ -120,17 +145,20 @@ export const selectQuestionSecretDetail = async (questionId: string, hashedPassw
           )
           END AS question,
           CASE
-          WHEN answer.id IS NOT NULL AND answer.is_delete = 0 THEN JSON_OBJECT(
+          WHEN answer.id IS NOT NULL THEN JSON_OBJECT(
             'id', answer.id,
             'question_id', answer.question_id,
             'answer_title', answer.answer_title,
             'answer_content', answer.answer_content,
-            'is_delete', answer.is_delete
+            'is_delete', answer.is_delete,
+            'created_at', answer.created_at,
+            'admin_name', admin_user.name
           )
           ELSE NULL
         END AS answer
         FROM question
-        LEFT JOIN answer ON question.id = answer.question_id 
+        LEFT JOIN answer ON question.id = answer.question_id AND answer.is_delete = 0
+        LEFT JOIN admin_user ON answer.admin_id = admin_user.id
         WHERE question.id = ?;
       `;
       const selectQuestionSecretDetailParams = [hashedPassword, questionId];
@@ -148,26 +176,46 @@ export const selectQuestionSecretDetail = async (questionId: string, hashedPassw
   }
 };
 
+// 질문 상세내용 조회
 export const selectQuestionDetail = async (questionId: string) => {
   try {
     const connection = await pool.getConnection();
 
     try {
       const selectQuestionDetailQuery = `
-        SELECT question.*,
-        CASE
+         SELECT 
+        CASE 
+          WHEN question.is_delete = 0 THEN JSON_OBJECT(
+            'id', question.id,
+            'question_title', question.question_title,
+            'question_content', question.question_content,
+            'question_name', question.question_name,
+            'is_secret', question.is_secret,
+            'is_answer_done', question.is_answer_done,
+            'is_delete', question.is_delete,
+            'created_at', question.created_at,
+            'updated_at', question.updated_at
+          )
+          ELSE JSON_OBJECT(
+            'is_secret', 3
+          )
+          END AS question,
+          CASE
           WHEN answer.id IS NOT NULL THEN JSON_OBJECT(
             'id', answer.id,
             'question_id', answer.question_id,
             'answer_title', answer.answer_title,
             'answer_content', answer.answer_content,
-            'is_delete', answer.is_delete
+            'is_delete', answer.is_delete,
+            'created_at', answer.created_at,
+            'admin_name', admin_user.name
           )
           ELSE NULL
         END AS answer
         FROM question
-        LEFT JOIN answer ON question.id = answer.question_id 
-        WHERE question.id = ?;
+        LEFT JOIN answer ON question.id = answer.question_id AND answer.is_delete = 0
+        LEFT JOIN admin_user ON answer.admin_id = admin_user.id
+        WHERE question.id = ?
       `;
       const selectQuestionDetailParams = [questionId];
       const [row] = await connection.query(selectQuestionDetailQuery, selectQuestionDetailParams);

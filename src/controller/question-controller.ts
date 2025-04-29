@@ -11,7 +11,16 @@ import crypto from 'crypto';
 // 질문 등록
 export const createQuestion: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { question_title, question_content, question_name, is_secret, secret_password } = req.body;
+    const {
+      question_title,
+      question_content,
+      question_name,
+      is_secret,
+      secret_password,
+      user_email,
+      user_phone,
+      user_site,
+    } = req.body;
 
     // 에러처리
     if (!question_title) {
@@ -42,6 +51,13 @@ export const createQuestion: RequestHandler = async (req: Request, res: Response
       });
       return;
     }
+    if (!user_email && !user_phone) {
+      res.status(400).send({
+        isSuccess: false,
+        message: '이메일 혹은 전화번호를 입력해 주세요',
+      });
+      return;
+    }
     if (is_secret && secret_password.length > 6) {
       res.status(400).send({
         isSuccess: false,
@@ -62,6 +78,9 @@ export const createQuestion: RequestHandler = async (req: Request, res: Response
       question_name,
       is_secret ? 1 : 0,
       hashedPassword,
+      user_email,
+      user_phone,
+      user_site,
     );
 
     const { insertId } = createQuestionData as { insertId: number };
@@ -109,7 +128,7 @@ export const readQuestion: RequestHandler = async (req: Request, res: Response, 
   try {
     const readQuestionData = await selectQuestion(pageMum, is_answer);
 
-    if (!readQuestionData) {
+    if (!readQuestionData || !readQuestionData.total || !readQuestionData.question) {
       res.status(500).send({
         isSuccess: false,
         message: '서버에 문제가 발생하였습니다.',
@@ -130,6 +149,7 @@ export const readQuestion: RequestHandler = async (req: Request, res: Response, 
 
 // 질문 상세 내용 조회 (비밀글 x)
 export const readQuestionDetail: RequestHandler = async (req: Request, res: Response, next: NextFunction) => {
+  const user = req.session.user;
   const { questionId } = req.params;
 
   // 에러처리
@@ -144,7 +164,7 @@ export const readQuestionDetail: RequestHandler = async (req: Request, res: Resp
   try {
     const readQuestionDetailBySecret = await selectDetailBySecretType(questionId);
     const { is_secret } = JSON.parse(JSON.stringify({ ...readQuestionDetailBySecret }))[0];
-    if (is_secret === 1) {
+    if (is_secret === 1 && !user) {
       res.status(400).send({
         isSuccess: false,
         message: '비밀글 입니다. 비밀번호를 입력해 주세요',
@@ -153,7 +173,15 @@ export const readQuestionDetail: RequestHandler = async (req: Request, res: Resp
     }
 
     const readQuestionDetailData = await selectQuestionDetail(questionId);
+    const readQuestion = JSON.parse(JSON.stringify({ ...readQuestionDetailData }))[0].question;
 
+    if (readQuestion.is_secret === 3) {
+      res.status(400).send({
+        isSuccess: false,
+        message: '삭제된 질문입니다.',
+      });
+      return;
+    }
     if (!readQuestionDetailData) {
       res.status(500).send({
         isSuccess: false,
@@ -161,10 +189,14 @@ export const readQuestionDetail: RequestHandler = async (req: Request, res: Resp
       });
       return;
     }
-
+    const { question, answer } = JSON.parse(JSON.stringify({ ...readQuestionDetailData }))[0];
+    const result = {
+      ...question,
+      answer,
+    };
     res.status(200).send({
       isSuccess: true,
-      data: readQuestionDetailData,
+      data: result,
       message: '요청에 성공하였습니다.',
     });
     return;

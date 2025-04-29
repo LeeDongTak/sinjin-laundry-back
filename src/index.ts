@@ -7,12 +7,17 @@ import adminUserRouter from './router/admin-user-router';
 import answerRouter from './router/answer-router';
 
 const app: Application = express();
-const port: number = 3000;
+const port: number = 4000;
 
 // express 미들웨어 설정
 
 // cors 설정
-app.use(cors());
+app.use(
+  cors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+  }),
+);
 
 // body json 파싱
 app.use(express.json());
@@ -26,7 +31,11 @@ app.use(
     secret: `${process.env.SESSION_KEY}`,
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false }, // https 사용 시 true로 설정하세요.
+    cookie: {
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+    },
   }),
 );
 
